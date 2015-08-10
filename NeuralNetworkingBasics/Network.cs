@@ -7,19 +7,17 @@ namespace NeuralNetworkingBasics
 {
     class Network
     {
-        int[] nodesInEachLayer;
-        double[][] biases;
-        double[][][] weights;
-
-        public int NumberOfLayers
+        private int[] nodesInEachLayer;
+        private double[][] biases;
+        private double[][][] weights;
+        private System.Random rndm = new System.Random();
+        private int NumberOfLayers
         {
             get
             {
                 return nodesInEachLayer.Length;
             }
         }
-
-        System.Random rndm = new System.Random();
 
         public Network(params int[] nodes)
         {
@@ -31,110 +29,7 @@ namespace NeuralNetworkingBasics
             SetUpBiasesAndWeights();
         }
 
-        public double[] FeedForward(params double[] inputs)
-        {
-            biases[0] = inputs; //update biases
-
-            double[] outputs = Sigmoid(CalculateZ(NumberOfLayers - 1));
-
-            return outputs;
-        }
-        private double[][] FeedForward(params double[][] inputs)
-        {
-            double[][] outputs = new double[inputs.Length][];
-            for (int i = 0; i < inputs.Length; i++)
-            {
-                biases[0] = inputs[i]; //update biases
-
-                outputs[i] = Sigmoid(CalculateZ(NumberOfLayers - 1));
-            }
-            return outputs;
-        }
-        public double CalculateZ(int layer, int node)
-        {
-            double weightedSum = 0.0;
-
-            if (layer > 0)
-                for (int input = 0; input < nodesInEachLayer[layer - 1]; input++)
-                {
-                    weightedSum += weights[layer][node][input] * CalculateZ(layer - 1, input);
-                }
-
-            return weightedSum + this.biases[layer][node];
-        }
-        private double[] CalculateZ(int layer)
-        {
-            double[] zs = new double[nodesInEachLayer[layer]];
-            for (int i = 0; i < zs.Length; i++)
-            {
-                zs[i] = CalculateZ(layer, i);
-            }
-            return zs;
-        }
-
-        private void SetUpBiasesAndWeights()
-        {
-            for (int layer = 0; layer < NumberOfLayers; layer++)
-            {
-                int numberOfNodesInLayer = nodesInEachLayer[layer];
-
-                this.biases[layer] = new double[numberOfNodesInLayer];
-                this.weights[layer] = new double[numberOfNodesInLayer][];
-
-                for (int node = 0; node < numberOfNodesInLayer; node++)
-                {
-                    biases[layer][node] = RandomNum(-1, 1);
-
-                    if (layer > 0)
-                    {
-                        weights[layer][node] = new double[nodesInEachLayer[layer - 1]];
-                        for (int previousNode = 0; previousNode < nodesInEachLayer[layer - 1]; previousNode++)
-                        {
-                            weights[layer][node][previousNode] = RandomNum(-1, 1)/Math.Sqrt(nodesInEachLayer[layer - 1]);
-                        }
-                    }
-                    else
-                        weights[0][node] = new double[] { };
-                }
-            }
-
-            // :)
-        }
-        private double Sigmoid(double x)
-        {
-            double diff = 1 + Math.Exp(-1 * x);
-            return 1.0 / diff;
-        }
-        private double[] Sigmoid(double[] xs)
-        {
-            double[] sp = new double[xs.Length];
-            for (int i = 0; i < sp.Length; i++)
-            {
-                sp[i] = Sigmoid(xs[i]);
-            }
-            return sp;
-        }
-        private double SigmoidPrime(double x)
-        {
-            double s = Sigmoid(x);
-            return s * (1 - s);
-        }
-        private double[] SigmoidPrime(double[] xs)
-        {
-            double[] sp = new double[xs.Length];
-            for (int i = 0; i < sp.Length; i++)
-            {
-                sp[i] = SigmoidPrime(xs[i]);
-            }
-            return sp;
-        }
-        private double RandomNum(double min, double max)
-        {
-            double range = max - min;
-            double interval = rndm.NextDouble() * (range); // (0, max - min);
-            return interval + min; //(min, max)
-        }
-
+        //Learning methods
         public void GradientDescent(List<double[]> inputs, List<double[]> expectedOutputs, int iterations, int batchSize, double learningRate, double regularizationFactor)
         {
             for (int iteration = 0; iteration < iterations; iteration++)
@@ -233,6 +128,111 @@ namespace NeuralNetworkingBasics
                         , ConstantMultiply(-1 * learningRate / batchSize, delta_w_t[layer][node]));
                 }
             }
+        }
+        public double[] Run(params double[] inputs) { return FeedForward(inputs); }
+
+        //Network Utility methods
+        private double[] FeedForward(double[] inputs)
+        {
+            biases[0] = inputs; //update biases
+
+            double[] outputs = Sigmoid(CalculateZ(NumberOfLayers - 1));
+
+            return outputs;
+        }
+        private double[][] FeedForward(double[][] inputs)
+        {
+            double[][] outputs = new double[inputs.Length][];
+            for (int i = 0; i < inputs.Length; i++)
+            {
+                biases[0] = inputs[i]; //update biases
+
+                outputs[i] = Sigmoid(CalculateZ(NumberOfLayers - 1));
+            }
+            return outputs;
+        }
+        private double CalculateZ(int layer, int node)
+        {
+            double weightedSum = 0.0;
+
+            if (layer > 0)
+                for (int input = 0; input < nodesInEachLayer[layer - 1]; input++)
+                {
+                    weightedSum += weights[layer][node][input] * CalculateZ(layer - 1, input);
+                }
+
+            return weightedSum + this.biases[layer][node];
+        }
+        private double[] CalculateZ(int layer)
+        {
+            double[] zs = new double[nodesInEachLayer[layer]];
+            for (int i = 0; i < zs.Length; i++)
+            {
+                zs[i] = CalculateZ(layer, i);
+            }
+            return zs;
+        }
+        private void SetUpBiasesAndWeights()
+        {
+            for (int layer = 0; layer < NumberOfLayers; layer++)
+            {
+                int numberOfNodesInLayer = nodesInEachLayer[layer];
+
+                this.biases[layer] = new double[numberOfNodesInLayer];
+                this.weights[layer] = new double[numberOfNodesInLayer][];
+
+                for (int node = 0; node < numberOfNodesInLayer; node++)
+                {
+                    biases[layer][node] = RandomNum(-1, 1);
+
+                    if (layer > 0)
+                    {
+                        weights[layer][node] = new double[nodesInEachLayer[layer - 1]];
+                        for (int previousNode = 0; previousNode < nodesInEachLayer[layer - 1]; previousNode++)
+                        {
+                            weights[layer][node][previousNode] = RandomNum(-1, 1) / Math.Sqrt(nodesInEachLayer[layer - 1]);
+                        }
+                    }
+                    else
+                        weights[0][node] = new double[] { };
+                }
+            }
+
+            // :)
+        }
+        private double Sigmoid(double x)
+        {
+            double diff = 1 + Math.Exp(-1 * x);
+            return 1.0 / diff;
+        }
+        private double[] Sigmoid(double[] xs)
+        {
+            double[] sp = new double[xs.Length];
+            for (int i = 0; i < sp.Length; i++)
+            {
+                sp[i] = Sigmoid(xs[i]);
+            }
+            return sp;
+        }
+        private double SigmoidPrime(double x)
+        {
+            double s = Sigmoid(x);
+            return s * (1 - s);
+        }
+        private double[] SigmoidPrime(double[] xs)
+        {
+            double[] sp = new double[xs.Length];
+            for (int i = 0; i < sp.Length; i++)
+            {
+                sp[i] = SigmoidPrime(xs[i]);
+            }
+            return sp;
+        }
+        private double RandomNum(double min, double max)
+        {
+            double range = max - min;
+            double interval = rndm.NextDouble() * (range); // (0, max - min);
+            return interval + min; //(min, max)
         }
 
         //Matrix methods
