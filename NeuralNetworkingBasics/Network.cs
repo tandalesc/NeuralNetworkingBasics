@@ -34,7 +34,6 @@ namespace NeuralNetworkingBasics
         {
             for (int iteration = 0; iteration < iterations; iteration++)
             {
-
                 int[] indexesToRemove = GetRandomIndexes(inputs, batchSize);
                 double[][] inputSet = GetBatch(inputs, indexesToRemove);
                 double[][] outputSet = GetBatch(expectedOutputs, indexesToRemove);
@@ -346,5 +345,10 @@ namespace NeuralNetworkingBasics
     {
         public double[][] partial_B;
         public double[][][] partial_W;
+    }
+    struct IOBatch
+    {
+        public List<double[]> InputList;
+        public List<double[]> OutputList;
     }
 }
