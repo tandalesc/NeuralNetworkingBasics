@@ -10,6 +10,7 @@ namespace NeuralNetworkingBasics
         private int[] nodesInEachLayer;
         private double[][] biases;
         private double[][][] weights;
+        private double[][][] velocity;
         private System.Random rndm = new System.Random();
         private int NumberOfLayers
         {
@@ -25,12 +26,13 @@ namespace NeuralNetworkingBasics
 
             biases = new double[NumberOfLayers][];
             weights = new double[NumberOfLayers][][];
+            velocity = new double[NumberOfLayers][][];
 
             SetUpBiasesAndWeights();
         }
 
         //Learning methods
-        public void GradientDescent(List<double[]> inputs, List<double[]> expectedOutputs, int iterations, int batchSize, double learningRate, double regularizationFactor)
+        public void GradientDescent(List<double[]> inputs, List<double[]> expectedOutputs, int iterations, int batchSize, double learningRate, double regularizationFactor, double friction)
         {
             for (int iteration = 0; iteration < iterations; iteration++)
             {
@@ -38,7 +40,7 @@ namespace NeuralNetworkingBasics
                 double[][] inputSet = GetBatch(inputs, indexesToRemove);
                 double[][] outputSet = GetBatch(expectedOutputs, indexesToRemove);
 
-                UpdateBiasesAndWeights(inputSet, outputSet, learningRate, batchSize, regularizationFactor);
+                UpdateBiasesAndWeights(inputSet, outputSet, learningRate, batchSize, regularizationFactor, friction);
             }
         }
         private Errors BackPropagate(double[] inputs, double[] expectedOutputs, double regularizationFactor, int totalInputs)
@@ -53,8 +55,8 @@ namespace NeuralNetworkingBasics
 
             //get errors in biases (or just errors in general -- same thing)
             double[] difference = MatrixAdd(realOutputs, ConstantMultiply(-1, expectedOutputs));
-            errorInBiases[lastLayer] = HadamardProduct(difference, SigmoidPrime(CalculateZ(lastLayer)));
-            //errorInBiases[lastLayer] = difference; //cross-entropy
+            //errorInBiases[lastLayer] = HadamardProduct(difference, SigmoidPrime(CalculateZ(lastLayer))); //parabolic
+            errorInBiases[lastLayer] = difference; //cross-entropy
 
             //back propagate errors
             for (int layer = lastLayer - 1; layer >= 0; layer--)
@@ -77,7 +79,7 @@ namespace NeuralNetworkingBasics
                         for (int inputNode = 0; inputNode < nodesInEachLayer[layer - 1]; inputNode++)
                         {
                             errorInWeights[layer][node][inputNode] = SigmoidPrime(CalculateZ(layer - 1, inputNode)) * errorInBiases[layer][node];
-                            errorInWeights[layer][node][inputNode] += regularizationFactor / totalInputs * this.weights[layer][node][inputNode];
+                            //errorInWeights[layer][node][inputNode] += regularizationFactor / totalInputs * this.weights[layer][node][inputNode];
                         }
                     }
                     else
@@ -95,7 +97,7 @@ namespace NeuralNetworkingBasics
 
             return e;
         }
-        private void UpdateBiasesAndWeights(double[][] inputSet, double[][] outputSet, double learningRate, int batchSize, double regularizationFactor)
+        private void UpdateBiasesAndWeights(double[][] inputSet, double[][] outputSet, double learningRate, int batchSize, double regularizationFactor, double friction)
         {
             double[][] delta_b_t = ConstantMultiply(0, this.biases);
             double[][][] delta_w_t = ConstantMultiply(0, this.weights);
@@ -114,8 +116,11 @@ namespace NeuralNetworkingBasics
 
                 for (int node = 0; node < nodesInEachLayer[layer]; node++)
                 {
-                    this.weights[layer][node] = MatrixAdd(ConstantMultiply(1 - learningRate*regularizationFactor/inputSet.Length, this.weights[layer][node])
+                    //momentum-based stochastic, regulated gradient descent
+                    this.velocity[layer][node] = MatrixAdd(ConstantMultiply(friction /* - learningRate*regularizationFactor*friction/inputSet.Length*/, this.velocity[layer][node])
                         , ConstantMultiply(-1 * learningRate / batchSize, delta_w_t[layer][node]));
+
+                    this.weights[layer][node] = MatrixAdd(this.weights[layer][node], this.velocity[layer][node]);
                 }
             }
         }
@@ -207,7 +212,7 @@ namespace NeuralNetworkingBasics
                     }
                 }
             }
-
+            velocity = ConstantMultiply(0, this.weights);
             // :)
         }
         private double Sigmoid(double x)
@@ -317,11 +322,11 @@ namespace NeuralNetworkingBasics
         {
             double[] resultant = new double[v.Length];
 
-            for (int row = 0; row < v.Length; row++)
+            for (int row = 0; row < a.Length; row++)
             {
-                for (int column = 0; column < a[row].Length; column++)
-                    resultant[row] += a[row][column];
-                resultant[row] *= v[row];
+                //linearly transform each row vector by dotting the a_row vector and v_col vector
+                for (int column = 0; column < v.Length; column++)
+                    resultant[row] += a[row][column] * v[column];
             }
 
             return resultant;
