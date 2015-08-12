@@ -10,7 +10,7 @@ namespace NeuralNetworkingBasics
         static void Main(string[] args)
         {
             //create and design network
-            Network n = new Network(5, 1);
+            Network n = new Network(5, 3, 1);
 
             //organize input output pairs
             List<double[]> inputs;
@@ -31,12 +31,21 @@ namespace NeuralNetworkingBasics
             inputSet.Add(new double[]
                 {0, 1, 1, 0.5, 0}
                 );
+            inputSet.Add(new double[]
+                {0, 1, 1, 1, 1}
+                );
+            inputSet.Add(new double[]
+                {1, 0, 0, 0, 1}
+                );
+            inputSet.Add(new double[]
+                {1, 1, 1, 0.5, 0}
+                );
 
 
-            int batchSize = 10;
+            int batchSize = 16;
 
             //tell network to learn from inputs
-            n.GradientDescent(inputs, outputs, 10000, batchSize, 0.0001, 0, 0.5);
+            n.GradientDescent(inputs, outputs, 30, batchSize, 0.25, 0.295, 0.07);
 
             //run the following inputs and output the results
             foreach (double[] i in inputSet)
@@ -50,7 +59,7 @@ namespace NeuralNetworkingBasics
         {
             Console.Write("<");
             foreach (double v in vector)
-                Console.Write("{0}, ", (v));
+                Console.Write("{0}, ", Round(v));
             Console.Write(">\n");
         }
         static void Print(IEnumerable<double> vectors)

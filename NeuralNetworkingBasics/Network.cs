@@ -79,7 +79,7 @@ namespace NeuralNetworkingBasics
                         for (int inputNode = 0; inputNode < nodesInEachLayer[layer - 1]; inputNode++)
                         {
                             errorInWeights[layer][node][inputNode] = SigmoidPrime(CalculateZ(layer - 1, inputNode)) * errorInBiases[layer][node];
-                            //errorInWeights[layer][node][inputNode] += regularizationFactor / totalInputs * this.weights[layer][node][inputNode];
+                            errorInWeights[layer][node][inputNode] += regularizationFactor / totalInputs * this.weights[layer][node][inputNode];
                         }
                     }
                     else
@@ -117,10 +117,13 @@ namespace NeuralNetworkingBasics
                 for (int node = 0; node < nodesInEachLayer[layer]; node++)
                 {
                     //momentum-based stochastic, regulated gradient descent
-                    this.velocity[layer][node] = MatrixAdd(ConstantMultiply(friction /* - learningRate*regularizationFactor*friction/inputSet.Length*/, this.velocity[layer][node])
-                        , ConstantMultiply(-1 * learningRate / batchSize, delta_w_t[layer][node]));
+                    this.velocity[layer][node] = MatrixAdd(
+                        ConstantMultiply(friction, this.velocity[layer][node]),
+                        ConstantMultiply(-1 * learningRate / batchSize, delta_w_t[layer][node]));
 
-                    this.weights[layer][node] = MatrixAdd(this.weights[layer][node], this.velocity[layer][node]);
+                    this.weights[layer][node] = MatrixAdd(
+                        ConstantMultiply(1 - learningRate * regularizationFactor / inputSet.Length, this.weights[layer][node]), 
+                        this.velocity[layer][node]);
                 }
             }
         }
@@ -202,7 +205,7 @@ namespace NeuralNetworkingBasics
                     {
                         biases[layer][node] = RandomNum(-0.5, 0.5);
                         for (int i = 0; i < maxNumberOfNodesInLayer; i++)
-                            weights[layer][node][i] = RandomNum(-0.5, 0.5);
+                            weights[layer][node][i] = 1.0/maxNumberOfNodesInLayer;
                     }
                     else
                     {
