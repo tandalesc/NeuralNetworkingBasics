@@ -45,7 +45,7 @@ namespace NeuralNetworkingBasics
             int batchSize = 16;
 
             //tell network to learn from inputs
-            n.GradientDescent(inputs, outputs, 30, batchSize, 0.25, 0.295, 0.07);
+            n.GradientDescent(inputs, outputs, 30, batchSize, 0.2, 0.295, 0.07);
 
             //run the following inputs and output the results
             foreach (double[] i in inputSet)

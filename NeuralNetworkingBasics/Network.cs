@@ -203,7 +203,7 @@ namespace NeuralNetworkingBasics
 
                     if (node < nodesInEachLayer[layer])
                     {
-                        biases[layer][node] = RandomNum(-0.5, 0.5);
+                        biases[layer][node] = 0;
                         for (int i = 0; i < maxNumberOfNodesInLayer; i++)
                             weights[layer][node][i] = 1.0/maxNumberOfNodesInLayer;
                     }
