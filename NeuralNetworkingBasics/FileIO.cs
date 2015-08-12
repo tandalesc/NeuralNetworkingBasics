@@ -9,20 +9,34 @@ namespace NeuralNetworkingBasics
 {
     class FileIO
     {
-        private static string[] ReadFile(string fileName)
+        static List<int> outputFields;
+        private static string[][] ReadFile(string fileName)
         {
-            List<string> outputStream = new List<string>();
+            outputFields = new List<int>();
+            List<string[]> outputStream = new List<string[]>();
             try
             {
                 using (VB.FileIO.TextFieldParser parser = new VB.FileIO.TextFieldParser(@fileName))
                 {
+                    parser.Delimiters = new string[] { "," };
+                    string[] template = parser.ReadFields(); //dump template text
+
+                    //mark output fields
+                    for (int i = 0; i < template.Length; i++)
+                    {
+                        if(template[i].ToLower().Contains("output"))
+                        {
+                            outputFields.Add(i);
+                        }
+                    }
+                    //store rest of the data in output stream
                     while (!parser.EndOfData)
                     {
-                        outputStream.Add(parser.ReadLine());
+                        outputStream.Add(parser.ReadFields());
                     }
                 }
             }
-            catch (Exception e)
+            catch (IOException e)
             {
                 Console.WriteLine("The file could not be read");
             }
@@ -49,49 +63,60 @@ namespace NeuralNetworkingBasics
             //only if exception is not thrown
             return true;
         }
-        private static double[] BuildVector(string vector)
+        private static double[] BuildDataSet(IEnumerable<string> inputSet)
         {
-            vector.Trim();
-            string[] data;
+            List<double> buffer = new List<double>();
 
-            if(vector.Length > 1)
-                 data = vector.Split('|');
-            else
-                 data = new string[] {vector};
-
-            List<double> vData = new List<double>();
-            for (int component = 0; component < data.Length; component++)
+            foreach(string line in inputSet)
             {
                 double d;
-                double.TryParse(data[component], out d);
-
-                vData.Add(d);
+                double.TryParse(line, out d);
+                buffer.Add(d);
             }
 
-            return vData.ToArray();
+            return buffer.ToArray();
         }
 
         public static FileData UnwrapCSVFile(string fileName)
         {
-            string[] fileData = ReadFile(fileName);
+            string[][] fileData = ReadFile(fileName);
 
 
             List<double[]> inputs = new List<double[]>();
             List<double[]> outputs = new List<double[]>();
             List<double[]> inputSet = new List<double[]>();
 
-            for (int line = 0; line < fileData.Length; line++)
+            for(int line = 0; line < fileData.Length; line++)
             {
-                string[] iopair_string = fileData[line].Split(',');
-                if(iopair_string.Length == 2 && !iopair_string[1].Equals(string.Empty)) //it's a legit input output pair, not a sample
+                if(fileData[line].Length > outputFields[0])
                 {
-                    inputs.Add(BuildVector(iopair_string[0]));
-                    outputs.Add(BuildVector(iopair_string[1]));
-                }
-                else 
+                    //this is an input-output learning pair
+                    List<string> buffer_inputs = new List<string>();
+                    List<string> buffer_outputs = new List<string>();
+
+                    for( int field = 0; field < fileData[line].Length; field++)
+                    {
+                        if(outputFields.Contains(field))
+                        {
+                            buffer_outputs.Add(fileData[line][field]);
+                        } else
+                        {
+                            buffer_inputs.Add(fileData[line][field]);
+                        }
+                    }
+
+                    double[] buffer2_inputs = BuildDataSet(buffer_inputs);
+                    double[] buffer2_outputs = BuildDataSet(buffer_outputs);
+
+                    inputs.Add(buffer2_inputs);
+                    outputs.Add(buffer2_outputs);
+
+                } else
                 {
-                    inputSet.Add(BuildVector(iopair_string[0]));
+                    //then it's just an input set
+                    inputSet.Add(BuildDataSet(fileData[line]));
                 }
+
             }
 
             IOBatch i = new IOBatch();

@@ -45,21 +45,21 @@ namespace NeuralNetworkingBasics
         {
             //set up
             double[] realOutputs = FeedForward(inputs);
-            double[][] errorInBiases = new double[NumberOfLayers][];
-            double[][][] errorInWeights = this.weights;
+            double[][] errorInBiases = ConstantMultiply(0, this.biases);
+            double[][][] errorInWeights = ConstantMultiply(0, this.weights);
 
             int lastLayer = NumberOfLayers - 1;
             int numberOfOutputNodes = nodesInEachLayer[lastLayer];
 
             //get errors in biases (or just errors in general -- same thing)
             double[] difference = MatrixAdd(realOutputs, ConstantMultiply(-1, expectedOutputs));
-            //errorInBiases[lastLayer] = HadamardProduct(difference, SigmoidPrime(CalculateZ(lastLayer)));
-            errorInBiases[lastLayer] = difference; //cross-entropy
+            errorInBiases[lastLayer] = HadamardProduct(difference, SigmoidPrime(CalculateZ(lastLayer)));
+            //errorInBiases[lastLayer] = difference; //cross-entropy
 
             //back propagate errors
             for (int layer = lastLayer - 1; layer >= 0; layer--)
             {
-                errorInBiases[layer] = new double[nodesInEachLayer[layer]];
+                errorInBiases[layer] = ConstantMultiply(0, this.biases[layer]);
 
 
                 double[][] wT = Transpose(weights[layer + 1]);
@@ -97,27 +97,18 @@ namespace NeuralNetworkingBasics
         }
         private void UpdateBiasesAndWeights(double[][] inputSet, double[][] outputSet, double learningRate, int batchSize, double regularizationFactor)
         {
-            double[][] delta_b_t = new double[NumberOfLayers][];
-            double[][][] delta_w_t = new double[NumberOfLayers][][];
+            double[][] delta_b_t = ConstantMultiply(0, this.biases);
+            double[][][] delta_w_t = ConstantMultiply(0, this.weights);
 
             for (int i = 0; i < inputSet.Length; i++)
             {
                 Errors e = BackPropagate(inputSet[i], outputSet[i], regularizationFactor, inputSet.Length);
 
-                double[][] delta_b = MatrixAdd(e.partial_B, this.biases);
-                double[][][] delta_w = MatrixAdd(e.partial_W, this.weights);
-
-                if (i == 0) //instantiate if necessary
-                {
-                    delta_b_t = delta_b;
-                    delta_w_t = delta_w;
-                }
-
-                delta_b_t = MatrixAdd(delta_b_t, delta_b);
-                delta_w_t = MatrixAdd(delta_w_t, delta_w);
+                delta_b_t = MatrixAdd(delta_b_t, e.partial_B);
+                delta_w_t = MatrixAdd(delta_w_t, e.partial_W);
             }
 
-            for (int layer = 0; layer < NumberOfLayers; layer++)
+            for (int layer = 1; layer < NumberOfLayers; layer++)
             {
                 this.biases[layer] = MatrixAdd(this.biases[layer], ConstantMultiply(-1 * learningRate / batchSize, delta_b_t[layer]));
 
@@ -128,7 +119,7 @@ namespace NeuralNetworkingBasics
                 }
             }
         }
-        public double[] Run(params double[] inputs) { return FeedForward(inputs); }
+        public double[] Run(params double[] inputs) { return FeedForwardIgnoreZero(inputs); }
 
         //Network Utility methods
         private double[] FeedForward(double[] inputs)
@@ -136,6 +127,14 @@ namespace NeuralNetworkingBasics
             biases[0] = inputs; //update biases
 
             double[] outputs = Sigmoid(CalculateZ(NumberOfLayers - 1));
+
+            return outputs;
+        }
+        private double[] FeedForwardIgnoreZero(double[] inputs)
+        {
+            biases[0] = inputs; //update biases
+
+            double[] outputs = SigmoidIgnoreZero(CalculateZ(NumberOfLayers - 1));
 
             return outputs;
         }
@@ -150,21 +149,31 @@ namespace NeuralNetworkingBasics
             }
             return outputs;
         }
+        private double[][] FeedForwardIgnoreZero(double[][] inputs)
+        {
+            double[][] outputs = new double[inputs.Length][];
+            for (int i = 0; i < inputs.Length; i++)
+            {
+                biases[0] = inputs[i]; //update biases
+
+                outputs[i] = SigmoidIgnoreZero(CalculateZ(NumberOfLayers - 1));
+            }
+            return outputs;
+        }
         private double CalculateZ(int layer, int node)
         {
             double weightedSum = 0.0;
 
             if (layer > 0)
-                for (int input = 0; input < nodesInEachLayer[layer - 1]; input++)
+                for (int input = 0; input < Max(nodesInEachLayer); input++)
                 {
                     weightedSum += weights[layer][node][input] * CalculateZ(layer - 1, input);
                 }
-
             return weightedSum + this.biases[layer][node];
         }
         private double[] CalculateZ(int layer)
         {
-            double[] zs = new double[nodesInEachLayer[layer]];
+            double[] zs = new double[Max(nodesInEachLayer)];
             for (int i = 0; i < zs.Length; i++)
             {
                 zs[i] = CalculateZ(layer, i);
@@ -173,27 +182,29 @@ namespace NeuralNetworkingBasics
         }
         private void SetUpBiasesAndWeights()
         {
+            int maxNumberOfNodesInLayer = Max(nodesInEachLayer);
+
             for (int layer = 0; layer < NumberOfLayers; layer++)
             {
-                int numberOfNodesInLayer = nodesInEachLayer[layer];
+                this.biases[layer] = new double[maxNumberOfNodesInLayer];
+                this.weights[layer] = new double[maxNumberOfNodesInLayer][];
 
-                this.biases[layer] = new double[numberOfNodesInLayer];
-                this.weights[layer] = new double[numberOfNodesInLayer][];
-
-                for (int node = 0; node < numberOfNodesInLayer; node++)
+                for (int node = 0; node < maxNumberOfNodesInLayer; node++)
                 {
-                    biases[layer][node] = RandomNum(-1, 1);
+                    weights[layer][node] = new double[maxNumberOfNodesInLayer];
 
-                    if (layer > 0)
+                    if (node < nodesInEachLayer[layer])
                     {
-                        weights[layer][node] = new double[nodesInEachLayer[layer - 1]];
-                        for (int previousNode = 0; previousNode < nodesInEachLayer[layer - 1]; previousNode++)
-                        {
-                            weights[layer][node][previousNode] = RandomNum(-1, 1) / Math.Sqrt(nodesInEachLayer[layer - 1]);
-                        }
+                        biases[layer][node] = RandomNum(-0.5, 0.5);
+                        for (int i = 0; i < maxNumberOfNodesInLayer; i++)
+                            weights[layer][node][i] = RandomNum(-0.5, 0.5);
                     }
                     else
-                        weights[0][node] = new double[] { };
+                    {
+                        biases[layer][node] = 0;
+                        for (int i = 0; i < maxNumberOfNodesInLayer; i++)
+                            weights[layer][node][i] = 0.0;
+                    }
                 }
             }
 
@@ -211,6 +222,13 @@ namespace NeuralNetworkingBasics
             {
                 sp[i] = Sigmoid(xs[i]);
             }
+            return sp;
+        }
+        private double[] SigmoidIgnoreZero(double[] xs)
+        {
+            double[] sp = new double[xs.Length];
+            for (int i = 0; i < sp.Length; i++)
+                sp[i] = (xs[i]==0) ? 0 : Sigmoid(xs[i]);
             return sp;
         }
         private double SigmoidPrime(double x)
@@ -232,6 +250,14 @@ namespace NeuralNetworkingBasics
             double range = max - min;
             double interval = rndm.NextDouble() * (range); // (0, max - min);
             return interval + min; //(min, max)
+        }
+        private int Max(int[] nums)
+        {
+            int biggest = int.MinValue;
+            for (int i = 0; i < nums.Length; i++)
+                if (nums[i] > biggest)
+                    biggest = nums[i];
+            return biggest;
         }
 
         //Matrix methods
@@ -256,34 +282,46 @@ namespace NeuralNetworkingBasics
                 atimesb[i] = ConstantMultiply(a,b[i]);
             return atimesb;
         }
+        private double[][][] ConstantMultiply(double a, double[][][] b)
+        {
+            double[][][] atimesb = new double[b.Length][][];
+            for (int i = 0; i < atimesb.Length; i++)
+                atimesb[i] = ConstantMultiply(a, b[i]);
+            return atimesb;
+        }
         private double[][] Transpose(double[][] a)
         {
+            //helper variables to clean up code
             int rows = a.Length;
             int columns = a[0].Length;
+            int totalAmt = rows * columns;
 
+            //our returning array (will instantiate rows soon)
             double[][] aT = new double[columns][];
-            for (int c = 0; c < columns; c++) 
+
+            //iterating through each element in the 2D array
+            for(int i = 0; i < totalAmt; i++)
             {
-                aT[c] = new double[rows];
-                for (int r = 0; r < rows; r++)
-                {
-                    aT[c][r] = a[r][c];
-                }
+                //instantiate columns for the first few iterations
+                if(i<columns)
+                    aT[i] = new double[rows];
+
+                //fill in each element in cycled order (thanks to modulus)
+                aT[i % columns][i % rows] = a[i % rows][i % columns];
             }
 
+            //done
             return aT;
         }
         private double[] MatrixMultiply(double[][] a, double[] v)
         {
-            double[] resultant = new double[a.Length];
+            double[] resultant = new double[v.Length];
 
-            for (int row = 0; row < a.Length; row++)
+            for (int row = 0; row < v.Length; row++)
             {
-                resultant[row] = 0.0;
-                for (int vindex = 0; vindex < v.Length; vindex++)
-                {
-                    resultant[row] += a[row][vindex] * v[vindex];
-                }
+                for (int column = 0; column < a[row].Length; column++)
+                    resultant[row] += a[row][column];
+                resultant[row] *= v[row];
             }
 
             return resultant;
@@ -292,7 +330,10 @@ namespace NeuralNetworkingBasics
         {
             double[] ab = new double[a.Length];
             for (int i = 0; i < ab.Length; i++)
-                ab[i] = a[i] + b[i];
+                //modulus means just wrap around if we get to the end of one vector
+                //this lets us "add" a 1D vector with an n-D vector for example:
+                //<5> + <1,2,3,4,5> = <6,7,8,9,10>
+                ab[i] = a[i%a.Length] + b[i%b.Length];
             return ab;
         }
         private double[][] MatrixAdd(double[][] a, double[][] b)
@@ -326,16 +367,20 @@ namespace NeuralNetworkingBasics
         }
         private int[] GetRandomIndexes(List<double[]> l, int count)
         {
-            List<int> indexes = new List<int>();
+            int[] indexes = new int[count];
 
-            while (indexes.Count < count)
+            for(int i = 0; i < count; i++)
             {
-                int j = rndm.Next(l.Count);
-                if (j < count)
-                {
-                    if(!indexes.Contains(j))
-                        indexes.Add(j);
-                }
+                //generate random integer
+                int rand = rndm.Next(l.Count);
+                
+                //scan indexes for repeats
+                for (int j = 0; j < i + 1; j++)
+                    if (indexes[j] == rand)
+                        i=j; //if so, then replace the element that was placed first
+
+                //always assign
+                indexes[i] = rand;
             }
 
             return indexes.ToArray();
